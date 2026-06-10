@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alem Bingo - ካርቴላ ማጫወቻ</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121826;
+            color: #ffffff;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 480px;
+        }
+        .header h2 {
+            color: #00d2ff;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+        }
+        /* አሁን የተጠራው ቁጥር ማሳያ ሰሌዳ */
+        .display-box {
+            background: linear-gradient(135deg, #1e2738, #1a2233);
+            border: 2px solid #00d2ff;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 450px;
+            padding: 12px;
+            text-align: center;
+            margin-bottom: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .display-title {
+            font-size: 12px;
+            color: #8fa0c0;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .current-num {
+            font-size: 48px;
+            font-weight: 900;
+            color: #ff3e6c;
+            text-shadow: 0 0 15px rgba(255, 62, 108, 0.4);
+            margin: 2px 0;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.03); }
+        }
+        .history-box {
+            font-size: 13px;
+            color: #00ffaa;
+            border-top: 1px dashed #344463;
+            padding-top: 6px;
+            margin-top: 6px;
+            word-break: break-all;
+            font-weight: 500;
+        }
+
+        /* የካርቴላዎች መያዣ መስኮት */
+        .cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 450px;
+            overflow-y: auto;
+            flex: 1;
+            padding-bottom: 20px;
+        }
+        .card-wrapper {
+            background: #1b2234;
+            border: 2px solid #344463;
+            border-radius: 14px;
+            padding: 10px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+            transition: border-color 0.3s;
+        }
+        .card-wrapper.active-card {
+            border-color: #00ffaa;
+        }
+        .card-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 0 4px;
+        }
+        .card-id-badge {
+            background: #00d2ff;
+            color: #121826;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .card-status {
+            font-size: 11px;
+            color: #8fa0c0;
+        }
+
+        /* የቢንጎ 5x5 ሰንጠረዥ አቀማመጥ */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            background: #121826;
+            padding: 6px;
+            border-radius: 10px;
+        }
+        .h-cell {
+            text-align: center;
+            font-weight: 900;
+            font-size: 18px;
+            padding: 6px 0;
+            color: #ffffff;
+            border-radius: 6px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        /* የዋና ቢንጎ መለያ ቀለማት (B-I-N-G-O) */
+        .b-b { background-color: #ff3e6c; }
+        .b-i { background-color: #ffaa00; }
+        .b-n { background-color: #00d2ff; }
+        .b-g { background-color: #9b51e0; }
+        .b-o { background-color: #00ffaa; }
+
+        .cell {
+            background: #242f47;
+            border: 1px solid #2d3b59;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 16px;
+            padding: 10px 0;
+            font-weight: bold;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        /* ቁጥሩ ሲገኝ የሚበራበት ቀለም */
+        .cell.matched {
+            background: linear-gradient(135deg, #00ffaa, #00b377) !important;
+            color: #121826 !important;
+            border-color: #00ffaa !important;
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.4);
+        }
+        /* የነጻ መካከለኛ ክፍል (FREE SPACE) */
+        .cell.free {
+            background: linear-gradient(135deg, #344463, #1e2738) !important;
+            color: #00d2ff !important;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        /* የታችኛው ረድፍ በተኖች */
+        .footer-buttons {
+            width: 100%;
+            max-width: 450px;
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            flex: 1;
+            border: none;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            color: #ffffff;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .btn-bingo {
+            background: linear-gradient(135deg, #ff3e6c, #ffaa00);
+        }
+        .btn-bingo:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Alem Bingo (አለም ቢንጎ)</h2>
+    </div>
+    
+    <div class="display-box">
+        <div class="display-title">📢 አሁን የተጠራው ቁጥር</div>
+        <div class="current-num" id="curr">--</div>
+        <div class="history-box" id="history">ያለፉ ቁጥሮች፦ የለም</div>
+    </div>
+
+    <div class="cards-container" id="cardsArea"></div>
+
+    <div class="footer-buttons">
+        <button class="btn btn-bingo" onclick="claimBingo()">🏆 ቢንጎ በል!</button>
+    </div>
+
+    <script>
+        // የቴሌግራም ዌብ አፕን ማስነሳት
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // ሙሉ ስክሪን እንዲሆን ማድረግ
+
+        // ከፓይተን በ URL በኩል የተላኩ መረጃዎችን በራስ-ሰር ማውጣት
+        // ማሳሰቢያ፡ ፓይተኑ በዌብ አፕ ሊንክ መረጃ ሲልክ በ JSON መልክ የያዘውን ዳታ እዚህ ያነባል
+        let calledNumbers = [];
+        let userCards = [];
+
+        // የሙከራ ዳታ (ቦቱ በደንብ እስኪገናኝ ዌብ አፑ ዝም ብሎ እንዳይቆም)
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initDataStr = urlParams.get('data');
+            if (initDataStr) {
+                const decodedData = JSON.parse(atob(initDataStr));
+                calledNumbers = decodedData.called || [];
+                userCards = decodedData.cards || [];
+            }
+        } catch (e) {
+            console.log("ዳታ በማንበብ ላይ ስህተት፡", e);
+        }
+
+        const cardsArea = document.getElementById('cardsArea');
+
+        // ካርቴላዎችን በስክሪኑ ላይ መደርደር
+        function renderCards() {
+            cardsArea.innerHTML = "";
+            if(userCards.length === 0) {
+                cardsArea.innerHTML = "<div style='text-align:center;color:#8fa0c0;margin-top:20px;'>የተቆረጠ ካርቴላ የለም። እባክዎ ከቦቱ ላይ Play 10 ን ይጫኑ!</div>";
+                return;
+            }
+
+            userCards.forEach(card => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                
+                const headerBar = document.createElement('div');
+                headerBar.className = 'card-header-bar';
+                
+                const badge = document.createElement('div');
+                badge.className = 'card-id-badge';
+                badge.innerText = 'ካርቴላ ቁጥር #' + card.id;
+                
+                const status = document.createElement('div');
+                status.className = 'card-status';
+                status.innerText = 'አውቶማቲክ ክትትል';
+                
+                headerBar.appendChild(badge);
+                headerBar.appendChild(status);
+                wrapper.appendChild(headerBar);
+                
+                const grid = document.createElement('div');
+                grid.className = 'grid';
+                
+                // የ B I N G O ፊደላት ራስጌዎች
+                const headers = ['B','I','N','G','O'];
+                const colors = ['b-b','b-i','b-n','b-g','b-o'];
+                headers.forEach((h, i) => {
+                    const hc = document.createElement('div');
+                    hc.className = 'h-cell ' + colors[i];
+                    hc.innerText = h;
+                    grid.appendChild(hc);
+                });
+                
+                // የቢንጎ 5x5 ቁጥሮችን መሙላት
+                for(let r=0; r<5; r++) {
+                    for(let c=0; c<5; c++) {
+                        const val = card.matrix[r][c];
+                        const div = document.createElement('div');
+                        div.className = 'cell';
+                        
+                        if(val === "FREE") {
+                            div.classList.add('free', 'matched');
+                            div.innerText = "FREE";
+                        } else {
+                            div.innerText = val;
+                            // የተጠራው ቁጥር በካርቴላው ላይ ካለ በራሱ እንዲያበራ ማድረግ (Auto-Match)
+                            if(calledNumbers.includes(parseInt(val))) {
+                                div.classList.add('matched');
+                            }
+                        }
+                        grid.appendChild(div);
+                    }
+                }
+                
+                wrapper.appendChild(grid);
+                cardsArea.appendChild(wrapper);
+            });
+
+            // የዕጣ ሰሌዳውን ማዘመን
+            if(calledNumbers.length > 0) {
+                const lastNum = calledNumbers[calledNumbers.length - 1];
+                let letter = lastNum <= 15 ? "B " : lastNum <= 30 ? "I " : lastNum <= 45 ? "N " : lastNum <= 60 ? "G " : "O ";
+                document.getElementById('curr').innerText = letter + lastNum;
+                document.getElementById('history').innerText = "ያለፉ ቁጥሮች፦ " + [...calledNumbers].reverse().join(', ');
+            }
+        }
+
+        // ተጫዋቹ "ቢንጎ በል" ሲል ለፓይተን ቦቱ መልዕክት መላክ
+        function claimBingo() {
+            tg.sendData(JSON.stringify({action: "claim_bingo"}));
+            alert("🎉 ቢንጎ ተብሏል! ሲስተሙ ካርቴላዎን እያረጋገጠ ነው...");
+            tg.close();
+        }
+
+        // ገጹ ሲከፈት ካርቴላዎቹን አውጥቶ ያሳያል
+        renderCards();
+    </script>
+</body>
+</html>
